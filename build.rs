@@ -14,8 +14,5 @@ fn main() {
     };
     println!("cargo:rustc-env=GIT_HASH={git_hash}");
 
-    #[cfg(feature = "embed")]
-    {
-        minijinja_embed::embed_templates!("templates");
-    }
+    minijinja_embed::embed_templates!("templates");
 }

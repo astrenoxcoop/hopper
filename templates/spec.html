@@ -1,4 +1,4 @@
-{% extends "base.en-us.html" %}
+{% extends "base.html" %}
 {% block title %}Hopper Spec{% endblock %}
 {% block header %}
 <meta property="og:locale" content="en_US" />
@@ -25,7 +25,7 @@
   <section>
     <p>The following link relationships and namespaces are used in the context of the <a href="https://datatracker.ietf.org/doc/html/rfc6415">Web Host Metadata Spec</a>.</p>
     <hgroup>
-      <h3>http://hopper.at/rel/link</h3>
+      <h3>https://hopper.at/rel/link</h3>
       <p>A Hooper link relation type.</p>
     </hgroup>
 
@@ -33,24 +33,36 @@
     <p>See also: <a href="https://atproto.com/specs/at-uri-scheme">https://atproto.com/specs/at-uri-scheme</a></p>
     
     <hgroup>
-      <h3>http://hopper.at/ns/collection</h3>
-      <p>A Hooper link collection namespaced property.</p>
+      <h3>https://atproto.com/ns/authority</h3>
+      <p>A filtering property for authority matching.</p>
     </hgroup>
-    <p>This namespace is used to match an AT-URI collection with a <code>link</code> structure.</p>
+    <p>When present, the link only matches AT-URIs with the specified authority (handle or DID).</p>
+
+    <hgroup>
+      <h3>https://atproto.com/ns/collection</h3>
+      <p>A filtering property for collection matching.</p>
+    </hgroup>
+    <p>When present, the link only matches AT-URIs with the specified collection value. When omitted, the link matches URIs regardless of their collection (wildcard behavior).</p>
+
+    <hgroup>
+      <h3>https://atproto.com/ns/rkey</h3>
+      <p>A filtering property for record key matching.</p>
+    </hgroup>
+    <p>When present, the link only matches AT-URIs with the specified record key.</p>
 
     <h1>Templates</h1>
     <p>This project uses the <strong>Restricted AT URI Syntax</strong>.</p>
-    <pre><code>AT-URI        = "at://" IDENTITY [ "/" COLLECTION [ "/" RKEY ] ]
+    <pre><code>AT-URI        = "at://" AUTHORITY [ "/" COLLECTION [ "/" RKEY ] ]
 
-IDENTITY      = HANDLE | DID
+AUTHORITY     = HANDLE | DID
 COLLECTION    = NSID
 RKEY          = RECORD-KEY</code></pre>
 
     <p>URI templates can use the following variables:</p>
     <ol>
-      <li><code>{identity}</code></li>
-      <li><code>{collection}</code></li>
-      <li><code>{rkey}</code></li>
+      <li><code>{authority}</code> - The authority portion of the AT-URI (handle or DID)</li>
+      <li><code>{collection}</code> - The collection NSID</li>
+      <li><code>{rkey}</code> - The record key</li>
     </ol>
 
     <p>This deviates from spec as typically only the <code>{uri}</code> variable is supported.</p>
@@ -58,10 +70,10 @@ RKEY          = RECORD-KEY</code></pre>
     <h1>Integration Notes</h1>
     <p>When a Web Host Meta structure is parsed, the following rules are applied:</p>
     <ol>
-      <li>Only links with the <code>rel</code> <code>http://hopper.at/rel/link</code> are used.</li>
+      <li>Only links with the <code>rel</code> <code>https://hopper.at/rel/link</code> are used.</li>
       <li>Only links with a <code>template</code> attribute are used.</li>
       <li>The template must have the same hostname as the server.</li>
-      <li>The <code>properties</code> attribute must contain the <code>http://hopper.at/ns/collection</code> key.</li>
+      <li>If the <code>properties</code> contain namespace properties (<code>https://atproto.com/ns/authority</code>, <code>https://atproto.com/ns/collection</code>, or <code>https://atproto.com/ns/rkey</code>), the AT-URI must match those filters.</li>
     </ol>
 
     <p>Optional, when serving the <code>/.well-known/host-meta.json</code> file, use the recommended <code>application/jrd+json</code> content type.</p>
@@ -71,10 +83,10 @@ RKEY          = RECORD-KEY</code></pre>
     <pre><code>{
   "links": [
     {
-      "rel": "http://hopper.at/rel/link",
-      "template": "https://smokesignal.events/{identity}/{rkey}",
+      "rel": "https://hopper.at/rel/link",
+      "template": "https://smokesignal.events/{authority}/{rkey}",
       "properties": {
-          "http://hopper.at/ns/collection": "events.smokesignal.calendar.event"
+          "https://atproto.com/ns/collection": "community.lexicon.calendar.event"
       }
     }
   ]

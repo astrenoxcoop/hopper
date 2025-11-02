@@ -23,10 +23,3 @@ impl IntoResponse for HopperError {
         }
     }
 }
-
-pub(crate) fn expand_error<S: Into<String>>(err: S) -> (String, String) {
-    let err: String = err.into();
-    let bare = err.split(' ').next().unwrap_or_default().to_string();
-    let partial = err.split(':').next().unwrap_or_default().to_string();
-    (bare, partial)
-}

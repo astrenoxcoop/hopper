@@ -1,42 +1,42 @@
 # syntax=docker/dockerfile:1.4
-FROM rust:1-bookworm AS build
+FROM rust:1.90-slim-bookworm AS builder
 
-RUN cargo install sccache --version ^0.8
-ENV RUSTC_WRAPPER=sccache SCCACHE_DIR=/sccache
-
-RUN USER=root cargo new --bin hopper
-RUN mkdir -p /app/
-WORKDIR /app/
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 ARG GIT_HASH
-ENV GIT_HASH=$GIT_HASH
 
-RUN --mount=type=bind,source=src,target=src \
-    --mount=type=bind,source=templates,target=templates \
-    --mount=type=bind,source=i18n,target=i18n \
-    --mount=type=bind,source=static,target=static \
-    --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
-    --mount=type=bind,source=Cargo.lock,target=Cargo.lock \
-    --mount=type=bind,source=build.rs,target=build.rs \
-    --mount=type=cache,target=/app/target/ \
-    --mount=type=cache,target=$SCCACHE_DIR,sharing=locked \
-    --mount=type=cache,target=/usr/local/cargo/registry/ \
-    <<EOF
-set -e
-cargo build --locked --release --bin hopper --target-dir . --no-default-features -F embed
-EOF
+WORKDIR /app
 
-FROM debian:bookworm-slim
+COPY Cargo.toml Cargo.lock build.rs ./
+COPY src ./src
+COPY static ./static
+COPY templates ./templates
 
-RUN set -x \
-    && apt-get update \
-    && apt-get install ca-certificates -y
+RUN cargo build --release --bin hopper
 
-ENV RUST_LOG=info
-ENV RUST_BACKTRACE=full
+FROM gcr.io/distroless/cc-debian12
 
-COPY --from=build /app/release/hopper /var/lib/hopper/
+LABEL org.opencontainers.image.title="hopper"
+LABEL org.opencontainers.image.licenses="MIT"
 
-WORKDIR /var/lib/hopper
+WORKDIR /app
 
-ENTRYPOINT ["sh", "-c", "/var/lib/hopper/hopper"]
+COPY --from=builder /app/target/release/hopper /app/hopper
+
+COPY --from=builder /app/static ./static
+COPY --from=builder /app/templates ./templates
+
+ENV HTTP_PORT=8080 \
+    HTTP_STATIC_PATH=/app/static \
+    RUST_LOG=hopper=info,warning \
+    RUST_BACKTRACE=1
+
+# Expose default port
+EXPOSE 8080
+
+# Run the application
+ENTRYPOINT ["/app/hopper"]

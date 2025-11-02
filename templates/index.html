@@ -1,4 +1,4 @@
-{% extends "base.en-us.html" %}
+{% extends "base.html" %}
 {% block title %}Hopper{% endblock %}
 {% block header %}
 <meta property="og:locale" content="en_US" />
@@ -27,7 +27,7 @@
     <p>An AT-URI redirection tool.</p>
   </hgroup>
   <section>
-    {% include 'index.en-us.partial.html' %}
+    {% include 'index.partial.html' %}
 
     <h1>About</h1>
     <p>Hopper is a tool that lets you customize the websites and services used to view AT-URIs.</p>
@@ -45,17 +45,14 @@
         <kbd>server</kbd> - (Optional) The hostname of an AT-URI provider that serves
         <code>/.well-known/host-meta.json</code> link templates.
       </li>
-      <li>
-        <kbd>lang</kbd> - (Optional) One of "en-us". (Default: "en-us")
-      </li>
     </ul>
     <p>Examples:</p>
     <ul>
       <li><a target="_blank"
-          href="https://hopper.at/?aturi=at%3A%2F%2Fdid%3Aplc%3Atgudj2fjm77pzkuawquqhsxm%2Fevents.smokesignal.calendar.event%2F3kxbvxj7blk2t">https://hopper.at/?aturi=at%3A%2F%2Fdid%3Aplc%3Atgudj2fjm77pzkuawquqh...vxj7blk2t</a>
+          href="https://hopper.at/?aturi=at%3A%2F%2Fdid%3Aplc%3Atgudj2fjm77pzkuawquqhsxm%2Fcommunity.lexicon.calendar.event%2F3kxbvxj7blk2t">https://hopper.at/?aturi=at%3A%2F%2Fdid%3Aplc%3Atgudj2fjm77pzkuawquqh...vxj7blk2t</a>
       </li>
       <li><a target="_blank"
-          href="web+at://did:plc:tgudj2fjm77pzkuawquqhsxm/events.smokesignal.calendar.event/3kxbvxj7blk2t">web+at://did:plc:tgudj2fjm77pzkuawquqhsxm/events.smokesignal.calendar.event/3kxbvxj7blk2t</a>
+          href="web+at://did:plc:tgudj2fjm77pzkuawquqhsxm/community.lexicon.calendar.event/3kxbvxj7blk2t">web+at://did:plc:tgudj2fjm77pzkuawquqhsxm/community.lexicon.calendar.event/3kxbvxj7blk2t</a>
       </li>
     </ul>
 

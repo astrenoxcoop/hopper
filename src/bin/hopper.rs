@@ -2,30 +2,17 @@ use anyhow::Result;
 use hopper::{
     cache::{new_resolve_aturi_cache, new_resolve_webhostmeta_cache, ResolveWebHostMetaResult},
     http::{
-        context::{AppEngine, I18nContext, WebContext},
+        context::{AppEngine, WebContext},
         server::build_router,
+        templates,
     },
-    i18n::Locales,
     webhostmeta::WebHostMeta,
 };
-use std::{env, str::FromStr, time::Duration};
+use std::{env, time::Duration};
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tracing_subscriber::prelude::*;
-use unic_langid::LanguageIdentifier;
-
-#[cfg(feature = "embed")]
-use hopper::http::templates::embed_env;
-
-#[cfg(feature = "embed")]
-use hopper::i18n::embed::populate_locale;
-
-#[cfg(feature = "reload")]
-use hopper::http::templates::reload_env;
-
-#[cfg(feature = "reload")]
-use hopper::i18n::reload::populate_locale;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -61,18 +48,7 @@ async fn main() -> Result<()> {
     client_builder = client_builder.timeout(Duration::from_secs(3));
     let http_client = client_builder.build()?;
 
-    let supported_languages = vec![LanguageIdentifier::from_str("en-us")?];
-    tracing::info!("Supported languages: {:?}", supported_languages);
-
-    let mut locales = Locales::new(supported_languages.clone());
-
-    populate_locale(&supported_languages, &mut locales)?;
-
-    #[cfg(feature = "embed")]
-    let jinja = embed_env::build_env(config.external_base.clone(), config.version.clone());
-
-    #[cfg(feature = "reload")]
-    let jinja = reload_env::build_env(&config.external_base, &config.version);
+    let jinja = templates::build_env(config.external_base.clone(), config.version.clone());
 
     let resolve_webfinger_cache = new_resolve_webhostmeta_cache();
 
@@ -80,9 +56,9 @@ async fn main() -> Result<()> {
         .insert(
             "bsky.app".to_string(),
             ResolveWebHostMetaResult::Found(WebHostMeta::new(vec![
-                hopper::webhostmeta::Link::new("https://bsky.app/profile/{identity}", None),
+                hopper::webhostmeta::Link::new("https://bsky.app/profile/{authority}", None),
                 hopper::webhostmeta::Link::new(
-                    "https://bsky.app/profile/{identity}/post/{rkey}",
+                    "https://bsky.app/profile/{authority}/post/{rkey}",
                     Some("app.bsky.feed.post"),
                 ),
             ])),
@@ -94,7 +70,7 @@ async fn main() -> Result<()> {
             "frontpage.fyi".to_string(),
             ResolveWebHostMetaResult::Found(WebHostMeta::new(vec![
                 hopper::webhostmeta::Link::new(
-                    "https://frontpage.fyi/post/{identity}/{rkey}",
+                    "https://frontpage.fyi/post/{authority}/{rkey}",
                     Some("fyi.unravel.frontpage.post"),
                 ),
             ])),
@@ -106,7 +82,7 @@ async fn main() -> Result<()> {
             "whtwnd.com".to_string(),
             ResolveWebHostMetaResult::Found(WebHostMeta::new(vec![
                 hopper::webhostmeta::Link::new(
-                    "https://whtwnd.com/{identity}/{rkey}",
+                    "https://whtwnd.com/{authority}/{rkey}",
                     Some("com.whtwnd.blog.entry"),
                 ),
             ])),
@@ -121,7 +97,6 @@ async fn main() -> Result<()> {
         &http_client,
         resolve_webfinger_cache,
         resolve_aturi_cache,
-        I18nContext::new(supported_languages, locales),
     );
 
     let app = build_router(web_context.clone());

@@ -1,7 +1,12 @@
+/// Represents a parsed AT-URI following the syntax:
+/// AT-URI = "at://" AUTHORITY [ "/" COLLECTION [ "/" RKEY ] ]
 #[derive(Debug, Clone)]
 pub(crate) struct AtUri {
-    pub(crate) identity: String,
+    /// The AUTHORITY component (handle or DID) from the AT-URI
+    pub(crate) authority: String,
+    /// The COLLECTION component (NSID)
     pub(crate) collection: Option<String>,
+    /// The RKEY component (record key)
     pub(crate) rkey: Option<String>,
 }
 
@@ -24,7 +29,7 @@ pub(crate) fn validate_aturi<S: Into<String>>(aturi: S) -> Option<AtUri> {
 
     let parts = stripped.split('/').collect::<Vec<&str>>();
 
-    if !parts.is_empty() && !is_valid_identity(parts[0]) {
+    if !parts.is_empty() && !is_valid_authority(parts[0]) {
         return None;
     }
     if parts.len() > 1 && !is_valid_nsid(parts[1]) {
@@ -35,7 +40,7 @@ pub(crate) fn validate_aturi<S: Into<String>>(aturi: S) -> Option<AtUri> {
     }
 
     return Some(AtUri {
-        identity: parts[0].to_string(),
+        authority: parts[0].to_string(),
         collection: parts.get(1).map(|s| s.to_string()),
         rkey: parts.get(2).map(|s| s.to_string()),
     });
@@ -84,16 +89,18 @@ enum InputType {
     Web(String),
 }
 
-pub(crate) fn is_valid_identity(identity: &str) -> bool {
-    let identity = if identity.starts_with("did:web:") {
-        InputType::Web(identity.to_string())
-    } else if identity.starts_with("did:plc:") {
-        InputType::Plc(identity.to_string())
+/// Validates the AUTHORITY component of an AT-URI.
+/// The AUTHORITY can be a handle or a DID (did:plc: or did:web:).
+pub(crate) fn is_valid_authority(authority: &str) -> bool {
+    let authority_type = if authority.starts_with("did:web:") {
+        InputType::Web(authority.to_string())
+    } else if authority.starts_with("did:plc:") {
+        InputType::Plc(authority.to_string())
     } else {
-        InputType::Handle(identity.to_string())
+        InputType::Handle(authority.to_string())
     };
 
-    match identity {
+    match authority_type {
         InputType::Handle(handle) => is_valid_hostname(&handle) && handle.chars().any(|c| c == '.'),
         InputType::Plc(did) => did
             .strip_prefix("did:plc:")

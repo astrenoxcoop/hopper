@@ -1,9 +1,8 @@
 use anyhow::Result;
 use axum::{
-    extract::State,
+    extract::{Query, State},
     response::{IntoResponse, Redirect},
 };
-use axum_extra::extract::Query;
 use axum_htmx::HxRequest;
 use axum_template::RenderHtml;
 use http::StatusCode;
@@ -13,12 +12,12 @@ use serde::Deserialize;
 
 use crate::{
     cache::aturi_cached,
-    errors::{expand_error, HopperError},
-    http::{context::WebContext, middleware_i18n::Language},
+    errors::HopperError,
+    http::context::WebContext,
     model::validate_aturi,
 };
 
-pub(crate) const ERROR_INVALID_AT_URI: &str = "error-web-invalid-aturi Invalid AT-URI";
+pub(crate) const ERROR_INVALID_AT_URI: &str = "Invalid AT-URI";
 
 #[derive(Deserialize)]
 pub(crate) struct Destination {
@@ -29,39 +28,30 @@ pub(crate) struct Destination {
 pub(crate) async fn handle_index(
     State(web_context): State<WebContext>,
     HxRequest(hx_request): HxRequest,
-    Language(language): Language,
     Query(destination): Query<Destination>,
 ) -> Result<impl IntoResponse, HopperError> {
     let default_context = template_context! {
-        language => language.to_string(),
         canonical_url => format!("https://{}/", web_context.external_base),
     };
 
-    let template_suffix = if hx_request {
-        format!("{}.partial.html", language.to_string().to_lowercase())
+    let template_name = if hx_request {
+        "index.partial.html"
     } else {
-        format!("{}.html", language.to_string().to_lowercase())
+        "index.html"
     };
 
     if let Some(aturi_str) = destination.aturi {
         let aturi = validate_aturi(&aturi_str);
         if aturi.is_none() {
             tracing::debug!(error = ERROR_INVALID_AT_URI, "error encountered");
-            let (err_bare, err_partial) = expand_error(ERROR_INVALID_AT_URI);
-
-            let error_message =
-                web_context
-                    .i18n_context
-                    .locales
-                    .format_error(&language, &err_bare, &err_partial);
 
             return Ok(RenderHtml(
-                format!("index.{}", template_suffix),
+                template_name,
                 web_context.engine.clone(),
                 template_context! { ..default_context, ..template_context! {
                     handle_error => true,
                     aturi_value => aturi_str,
-                    aturi_error => error_message,
+                    aturi_error => ERROR_INVALID_AT_URI,
                 }},
             )
             .into_response());
@@ -83,16 +73,10 @@ pub(crate) async fn handle_index(
 
         if let Err(err) = destination {
             tracing::debug!(error = ?err, "error encountered");
-            let (err_bare, err_partial) = expand_error(err.to_string());
-
-            let error_message =
-                web_context
-                    .i18n_context
-                    .locales
-                    .format_error(&language, &err_bare, &err_partial);
+            let error_message = err.to_string();
 
             return Ok(RenderHtml(
-                format!("index.{}", template_suffix),
+                template_name,
                 web_context.engine.clone(),
                 template_context! { ..default_context, ..template_context! {
                     handle_error => true,
@@ -113,7 +97,7 @@ pub(crate) async fn handle_index(
     }
 
     Ok(RenderHtml(
-        format!("index.{}", template_suffix),
+        template_name,
         web_context.engine.clone(),
         default_context,
     )

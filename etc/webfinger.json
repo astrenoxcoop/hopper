@@ -2,10 +2,10 @@
   "subject": "acct:smokesignal.events",
   "links": [
     {
-      "rel": "https://hopper.at/spec/schema/1.0/link",
-      "href": "https://smokesignal.events/{identity}/{rkey}",
+      "rel": "https://hopper.at/rel/link",
+      "href": "https://smokesignal.events/{authority}/{rkey}",
       "properties": {
-         "https://hopper.at/spec/schema/1.0/link#collection": "events.smokesignal.calendar.event"
+         "https://atproto.com/ns/collection": "community.lexicon.calendar.event"
       }
     }
   ]

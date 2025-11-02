@@ -4,8 +4,10 @@ use std::collections::HashMap;
 
 use crate::model::AtUri;
 
-pub const REL_LINK: &str = "http://hopper.at/rel/link";
-pub const NS_COLLECTION: &str = "http://hopper.at/ns/collection";
+pub const REL_LINK: &str = "https://hopper.at/rel/link";
+pub const NS_AUTHORITY: &str = "https://atproto.com/ns/authority";
+pub const NS_COLLECTION: &str = "https://atproto.com/ns/collection";
+pub const NS_RKEY: &str = "https://atproto.com/ns/rkey";
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct Link {
@@ -76,18 +78,41 @@ impl WebHostMeta {
                 continue;
             }
 
-            let matching_collection = aturi.collection.clone().unwrap_or("identity".to_string());
-            let compare_collection = link
-                .properties
-                .get(NS_COLLECTION)
-                .map(|value| value.to_string())
-                .unwrap_or("identity".to_string());
+            // Property-based matching: if a property is present, the corresponding
+            // URI component must match the property value.
 
-            if compare_collection != matching_collection {
-                continue;
+            // Check NS_AUTHORITY: if present, authority must match
+            if let Some(required_authority) = link.properties.get(NS_AUTHORITY) {
+                if &aturi.authority != required_authority {
+                    continue;
+                }
             }
 
-            let mut result = template.replace("{identity}", &aturi.identity);
+            // Check NS_COLLECTION: if present, collection must match
+            if let Some(required_collection) = link.properties.get(NS_COLLECTION) {
+                match &aturi.collection {
+                    Some(collection) if collection == required_collection => {
+                        // Match, continue checking
+                    }
+                    _ => continue, // No match, skip this link
+                }
+            }
+
+            // Check NS_RKEY: if present, rkey must match
+            if let Some(required_rkey) = link.properties.get(NS_RKEY) {
+                match &aturi.rkey {
+                    Some(rkey) if rkey == required_rkey => {
+                        // Match, continue checking
+                    }
+                    _ => continue, // No match, skip this link
+                }
+            }
+
+            // Template variable substitution:
+            // {authority} - The AUTHORITY component from the AT-URI (handle or DID)
+            // {collection} - The COLLECTION component (NSID)
+            // {rkey} - The RKEY component (record key)
+            let mut result = template.replace("{authority}", &aturi.authority);
             if let Some(collection) = &aturi.collection {
                 result = result.replace("{collection}", collection);
             }
@@ -113,10 +138,10 @@ mod tests {
             r##"{
   "links": [
     {
-      "rel": "http://hopper.at/rel/link",
-      "template": "https://smokesignal.events/{identity}/{rkey}",
+      "rel": "https://hopper.at/rel/link",
+      "template": "https://smokesignal.events/{authority}/{rkey}",
       "properties": {
-         "https://hopper.at/spec/schema/1.0/link#collection": "events.smokesignal.calendar.event"
+         "https://atproto.com/ns/collection": "community.lexicon.calendar.event"
       }
     }
   ]
@@ -130,42 +155,229 @@ mod tests {
     }
 
     #[test]
-    fn test_match_uri() {
+    fn test_match_uri_no_collection_filter() {
         let hostname = "smokesignal.events".to_string();
-        let web_finger1 = WebHostMeta {
+        let web_finger = WebHostMeta {
             links: vec![Link {
-                rel: "http://hopper.at/rel/link".to_string(),
-                template: Some("https://smokesignal.events/{identity}".to_string()),
+                rel: "https://hopper.at/rel/link".to_string(),
+                template: Some("https://smokesignal.events/profile/{authority}".to_string()),
+                properties: HashMap::new(), // No collection filter
+            }],
+            properties: Default::default(),
+        };
+
+        // Should match: no collection filter, URI has no collection
+        assert_eq!(
+            web_finger.match_uri(
+                &hostname,
+                &crate::model::AtUri {
+                    authority: "ngerakines.me".to_string(),
+                    collection: None,
+                    rkey: None,
+                }
+            ),
+            Some("https://smokesignal.events/profile/ngerakines.me".into())
+        );
+
+        // Should ALSO match: no collection filter means accept any collection
+        assert_eq!(
+            web_finger.match_uri(
+                &hostname,
+                &crate::model::AtUri {
+                    authority: "smokesignal.events".to_string(),
+                    collection: Some("app.bsky.feed.post".into()),
+                    rkey: Some("s0xnr5kqnp".into()),
+                }
+            ),
+            Some("https://smokesignal.events/profile/smokesignal.events".into())
+        );
+    }
+
+    #[test]
+    fn test_match_uri_specific_collection() {
+        let hostname = "example.com".to_string();
+        let web_finger = WebHostMeta {
+            links: vec![Link {
+                rel: "https://hopper.at/rel/link".to_string(),
+                template: Some("https://example.com/{authority}/posts/{rkey}".to_string()),
                 properties: HashMap::from([(
-                    "https://hopper.at/spec/schema/1.0/link#collection".into(),
-                    "identity".into(),
+                    super::NS_COLLECTION.into(),
+                    "app.bsky.feed.post".into(),
                 )]),
             }],
             properties: Default::default(),
         };
 
+        // Should match: collection matches
         assert_eq!(
-            web_finger1.match_uri(
+            web_finger.match_uri(
                 &hostname,
                 &crate::model::AtUri {
-                    identity: "ngerakines.me".to_string(),
+                    authority: "alice.example.com".to_string(),
+                    collection: Some("app.bsky.feed.post".into()),
+                    rkey: Some("abc123".into()),
+                }
+            ),
+            Some("https://example.com/alice.example.com/posts/abc123".into())
+        );
+
+        // Should NOT match: different collection
+        assert_eq!(
+            web_finger.match_uri(
+                &hostname,
+                &crate::model::AtUri {
+                    authority: "alice.example.com".to_string(),
+                    collection: Some("app.bsky.feed.like".into()),
+                    rkey: Some("abc123".into()),
+                }
+            ),
+            None,
+        );
+
+        // Should NOT match: no collection
+        assert_eq!(
+            web_finger.match_uri(
+                &hostname,
+                &crate::model::AtUri {
+                    authority: "alice.example.com".to_string(),
                     collection: None,
                     rkey: None,
                 }
             ),
-            Some("https://smokesignal.events/ngerakines.me".into())
+            None,
         );
+    }
 
+    #[test]
+    fn test_match_uri_authority_filter() {
+        let hostname = "example.com".to_string();
+        let web_finger = WebHostMeta {
+            links: vec![Link {
+                rel: "https://hopper.at/rel/link".to_string(),
+                template: Some("https://example.com/special/{authority}".to_string()),
+                properties: HashMap::from([(
+                    super::NS_AUTHORITY.into(),
+                    "alice.example.com".into(),
+                )]),
+            }],
+            properties: Default::default(),
+        };
+
+        // Should match: authority matches
         assert_eq!(
-            web_finger1.match_uri(
+            web_finger.match_uri(
                 &hostname,
                 &crate::model::AtUri {
-                    identity: "smokesignal.events".to_string(),
-                    collection: Some("event".into()),
-                    rkey: Some("s0xnr5kqnp".into()),
+                    authority: "alice.example.com".to_string(),
+                    collection: None,
+                    rkey: None,
+                }
+            ),
+            Some("https://example.com/special/alice.example.com".into())
+        );
+
+        // Should NOT match: different authority
+        assert_eq!(
+            web_finger.match_uri(
+                &hostname,
+                &crate::model::AtUri {
+                    authority: "bob.example.com".to_string(),
+                    collection: None,
+                    rkey: None,
                 }
             ),
             None,
+        );
+    }
+
+    #[test]
+    fn test_match_uri_rkey_filter() {
+        let hostname = "example.com".to_string();
+        let web_finger = WebHostMeta {
+            links: vec![Link {
+                rel: "https://hopper.at/rel/link".to_string(),
+                template: Some("https://example.com/pinned".to_string()),
+                properties: HashMap::from([(super::NS_RKEY.into(), "pinned".into())]),
+            }],
+            properties: Default::default(),
+        };
+
+        // Should match: rkey matches
+        assert_eq!(
+            web_finger.match_uri(
+                &hostname,
+                &crate::model::AtUri {
+                    authority: "alice.example.com".to_string(),
+                    collection: Some("app.bsky.feed.post".into()),
+                    rkey: Some("pinned".into()),
+                }
+            ),
+            Some("https://example.com/pinned".into())
+        );
+
+        // Should NOT match: different rkey
+        assert_eq!(
+            web_finger.match_uri(
+                &hostname,
+                &crate::model::AtUri {
+                    authority: "alice.example.com".to_string(),
+                    collection: Some("app.bsky.feed.post".into()),
+                    rkey: Some("abc123".into()),
+                }
+            ),
+            None,
+        );
+
+        // Should NOT match: no rkey
+        assert_eq!(
+            web_finger.match_uri(
+                &hostname,
+                &crate::model::AtUri {
+                    authority: "alice.example.com".to_string(),
+                    collection: Some("app.bsky.feed.post".into()),
+                    rkey: None,
+                }
+            ),
+            None,
+        );
+    }
+
+    #[test]
+    fn test_match_uri_no_filters() {
+        let hostname = "example.com".to_string();
+        let web_finger = WebHostMeta {
+            links: vec![Link {
+                rel: "https://hopper.at/rel/link".to_string(),
+                template: Some("https://example.com/{authority}/{collection}/{rkey}".to_string()),
+                properties: HashMap::new(), // No filters
+            }],
+            properties: Default::default(),
+        };
+
+        // Should match: no filters means accept anything
+        assert_eq!(
+            web_finger.match_uri(
+                &hostname,
+                &crate::model::AtUri {
+                    authority: "alice.example.com".to_string(),
+                    collection: Some("app.bsky.feed.post".into()),
+                    rkey: Some("abc123".into()),
+                }
+            ),
+            Some("https://example.com/alice.example.com/app.bsky.feed.post/abc123".into())
+        );
+
+        // Should also match with different values
+        assert_eq!(
+            web_finger.match_uri(
+                &hostname,
+                &crate::model::AtUri {
+                    authority: "bob.example.com".to_string(),
+                    collection: Some("app.bsky.feed.like".into()),
+                    rkey: Some("xyz789".into()),
+                }
+            ),
+            Some("https://example.com/bob.example.com/app.bsky.feed.like/xyz789".into())
         );
     }
 }
