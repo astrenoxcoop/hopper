@@ -8,23 +8,22 @@ minijinja-embed = {version = "2.2"}
 
 [dependencies]
 anyhow = "1.0"
-axum = { version = "0.7", features = ["http2", "macros"] }
-axum-template = { version = "2.4", features = ["minijinja"] }
-axum-htmx = { version = "0.6", features = ["auto-vary"] }
+axum = { version = "0.8.6", features = ["macros"] }
+axum-template = { version = "3.0", features = ["minijinja"] }
 cityhasher = "0.1"
 http = "1.1"
 minijinja = { version = "2.2", features = ["builtins", "json", "urlencode"] }
 minijinja-embed = { version = "2.2" }
 moka = { version = "0.12", features = ["future"] }
-ordermap = "0.5"
+ordermap = "1"
 reqwest = { version = "0.12", features = ["json", "zstd", "rustls-tls"] }
 serde = { version = "1.0", features = ["alloc", "derive"] }
 serde_json = { version = "1.0", features = ["alloc"] }
-thiserror = "1.0"
+thiserror = "2"
 tokio = { version = "1.41", features = ["bytes", "macros", "net", "rt", "rt-multi-thread", "signal"] }
 tokio-util = { version = "0.7", features = ["net", "rt", "tracing"] }
 tower = { version = "0.5", features = ["limit", "timeout", "tokio", "tracing", "util"] }
-tower-http = { version = "0.5", features = ["cors", "fs", "timeout", "trace", "tracing"] }
+tower-http = { version = "0.6", features = ["cors", "fs", "timeout", "trace", "tracing"] }
 tracing = { version = "0.1", features = ["async-await", "log"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "chrono", "json"] }
 

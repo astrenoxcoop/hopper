@@ -1,10 +1,10 @@
-<form hx-get="/" hx-swap="outerHTML settle:1s">
+<form method="get" action="/">
   <fieldset>
     <label for="aturi">AT-URI</label>
-    <input type="text" id="aturi" name="aturi" data-loading-disable required {% if aturi_value %} value="{{ aturi_value }}" {% else %} placeholder="at://did:plc:tgudj2fjm77pzkuawquqhsxm/community.lexicon.calendar.event/3kxbvxj7blk2t" {% endif %}{% if aturi_error %} aria-invalid="true" aria-describedby="aturi-error"{% endif %}>
+    <input type="text" id="aturi" name="aturi" required {% if aturi_value %} value="{{ aturi_value }}" {% else %} placeholder="at://did:plc:tgudj2fjm77pzkuawquqhsxm/community.lexicon.calendar.event/3kxbvxj7blk2t" {% endif %}{% if aturi_error %} aria-invalid="true" aria-describedby="aturi-error"{% endif %}>
     {% if aturi_error %}
     <small id="aturi-error">{{ aturi_error }}</small>
     {% endif %}
   </fieldset>
-  <button data-loading-disable data-loading-aria-busy>Go</button>
+  <button type="submit">Go</button>
 </form>

@@ -3,9 +3,7 @@ use axum::{
     extract::{Query, State},
     response::{IntoResponse, Redirect},
 };
-use axum_htmx::HxRequest;
 use axum_template::RenderHtml;
-use http::StatusCode;
 use minijinja::context as template_context;
 use ordermap::OrderSet;
 use serde::Deserialize;
@@ -27,17 +25,10 @@ pub(crate) struct Destination {
 
 pub(crate) async fn handle_index(
     State(web_context): State<WebContext>,
-    HxRequest(hx_request): HxRequest,
     Query(destination): Query<Destination>,
 ) -> Result<impl IntoResponse, HopperError> {
     let default_context = template_context! {
         canonical_url => format!("https://{}/", web_context.external_base),
-    };
-
-    let template_name = if hx_request {
-        "index.partial.html"
-    } else {
-        "index.html"
     };
 
     if let Some(aturi_str) = destination.aturi {
@@ -46,7 +37,7 @@ pub(crate) async fn handle_index(
             tracing::debug!(error = ERROR_INVALID_AT_URI, "error encountered");
 
             return Ok(RenderHtml(
-                template_name,
+                "index.html",
                 web_context.engine.clone(),
                 template_context! { ..default_context, ..template_context! {
                     handle_error => true,
@@ -76,7 +67,7 @@ pub(crate) async fn handle_index(
             let error_message = err.to_string();
 
             return Ok(RenderHtml(
-                template_name,
+                "index.html",
                 web_context.engine.clone(),
                 template_context! { ..default_context, ..template_context! {
                     handle_error => true,
@@ -89,15 +80,11 @@ pub(crate) async fn handle_index(
 
         let destination = destination.unwrap();
 
-        if hx_request {
-            return Ok((StatusCode::OK, [("HX-Redirect", destination)]).into_response());
-        }
-
         return Ok(Redirect::to(&destination).into_response());
     }
 
     Ok(RenderHtml(
-        template_name,
+        "index.html",
         web_context.engine.clone(),
         default_context,
     )

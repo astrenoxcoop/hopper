@@ -1,13 +1,11 @@
-use std::convert::Infallible;
 use std::time::Duration;
 
-use axum::{body::Body, extract::Request, http::HeaderValue, response::Response, routing::get, Router};
-use axum_htmx::AutoVaryLayer;
+use axum::{http::HeaderValue, routing::get, Router};
 use http::{
     header::{ACCEPT, ACCEPT_LANGUAGE},
     Method,
 };
-use tower_http::cors::CorsLayer;
+use tower_http::{cors::CorsLayer, services::ServeDir};
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 
@@ -17,9 +15,7 @@ use crate::http::{
 };
 
 pub fn build_router(web_context: WebContext) -> Router {
-    let serve_dir = tower::service_fn(|_request: Request| async {
-        Ok::<_, Infallible>(Response::new(Body::empty()))
-    });
+    let serve_dir = ServeDir::new("static");
 
     Router::new()
         .route("/", get(handle_index))
@@ -37,6 +33,5 @@ pub fn build_router(web_context: WebContext) -> Router {
                 .allow_methods([Method::GET])
                 .allow_headers([ACCEPT_LANGUAGE, ACCEPT]),
         )
-        .layer(AutoVaryLayer)
         .with_state(web_context.clone())
 }
